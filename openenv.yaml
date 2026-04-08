@@ -1,0 +1,53 @@
+id: homeops
+name: HomeOps
+version: 0.1.0
+description: >
+  A household task-management environment where an agent manages a person's
+  day by choosing which household tasks to do, defer, or rest from while
+  balancing urgency, deadlines, energy, task aversion, and home readiness.
+
+entry_point: homeops.env:HomeOpsEnv
+
+tags:
+  - openenv
+  - household
+  - planning
+  - productivity
+  - task-management
+
+authors:
+  - name: Thanuja Kanamarlapudi
+
+license: MIT
+
+observation_space:
+  type: object
+  description: >
+    Structured observation containing current time, user state, home state,
+    active tasks, upcoming events, and last action outcome.
+
+action_space:
+  type: object
+  description: >
+    Structured action containing action_type, optional task_id, and minutes.
+
+reward_space:
+  type: float
+  range:
+    min: 0.0
+    max: 1.0
+  description: >
+    Dense per-step reward with partial progress signals and penalties for
+    undesirable behavior such as deadline misses, repeated deferrals, and
+    invalid actions.
+
+scenarios:
+  - id: saturday_reset
+    difficulty: easy
+    description: Weekend reset with moderate backlog and one important bill deadline.
+  - id: guests_at_6pm
+    difficulty: medium
+    description: Guest-readiness task prioritization under deadline pressure.
+  - id: overwhelmed_day
+    difficulty: hard
+    description: Low-energy overloaded day with dependencies and multiple deadlines.

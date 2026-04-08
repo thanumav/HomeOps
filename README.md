@@ -1,0 +1,199 @@
+# HomeOps
+
+HomeOps is a household task-management OpenEnv environment where an agent must manage a person’s day by choosing which household tasks to do, defer, or rest from while balancing urgency, deadlines, user energy, task aversion, and home readiness.
+
+## Motivation
+
+Managing a household is a real-world executive-function problem. People do not simply try to maximize the number of completed tasks. They balance urgency, fatigue, avoidance of difficult chores, hard deadlines, and external constraints such as guests arriving or bills being due.
+
+HomeOps is designed as an evaluation environment for agents operating in this kind of realistic domestic planning setting.
+
+## Environment Overview
+
+Each episode simulates a single day from **08:00 to 22:00** in **30-minute steps**.
+
+The environment tracks:
+
+- user energy, stress, and satisfaction
+- home cleanliness, clutter, guest readiness, kitchen readiness, and laundry backlog
+- task progress, deadlines, dependencies, and aversion
+- external events such as guests arriving, bill cutoffs, and delivery windows
+
+The agent must act under competing pressures rather than simply complete a flat to-do list.
+
+## Action Space
+
+HomeOps uses structured typed actions.
+
+Available actions:
+
+- `work_on_task`
+- `rest`
+- `defer_task`
+
+Action fields:
+
+- `action_type`
+- `task_id` for task-related actions
+- `minutes` fixed to one environment step in V1
+
+## Observation Space
+
+Each observation includes:
+
+- current time
+- steps remaining
+- user energy, stress, satisfaction
+- home state metrics
+- active tasks
+- upcoming events
+- last action summary
+- invalid action flag
+
+## Reward Design
+
+HomeOps uses dense step-wise reward rather than only terminal reward.
+
+Reward components include:
+
+- progress on meaningful tasks
+- task completion bonuses
+- improvements to home state
+- deadline-aligned progress
+- anti-procrastination bonus for difficult mandatory tasks
+- penalties for repeated deferrals
+- penalties for missed deadlines
+- penalties for wasteful actions
+- penalties for exhaustion
+- penalties for invalid actions
+
+This gives useful feedback throughout the episode instead of only at the end.
+
+## Scenarios
+
+HomeOps includes three deterministic benchmark scenarios.
+
+### 1. Saturday Reset
+**Difficulty:** Easy
+
+A normal weekend reset day with moderate household backlog and one important bill deadline.
+
+### 2. Guests at 6 PM
+**Difficulty:** Medium
+
+Guests are arriving in the evening, and some tasks matter far more than others for guest readiness.
+
+### 3. Overwhelmed Day
+**Difficulty:** Hard
+
+A low-energy day with multiple obligations, dependencies, deadlines, and competing household demands.
+
+The hard scenario is designed to test dependency handling, deadline management, and energy-aware planning.
+
+## Grading
+
+Episodes are graded deterministically with a final score in `[0.0, 1.0]`.
+
+The final grade combines:
+
+- weighted task completion
+- deadline compliance
+- readiness score
+- satisfaction score
+- efficiency score
+
+This makes evaluation reproducible and transparent.
+
+## Setup
+
+**macOS / Linux**
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python3 -m pip install -r requirements.txt
+```
+
+**Windows**
+```bat
+python -m venv .venv
+.venv\Scripts\activate
+python -m pip install -r requirements.txt
+```
+
+## Run Tests
+
+```bash
+python3 -m pytest -q
+```
+
+## Run Heuristic Baseline
+
+```bash
+python3 -m baseline.run_baseline
+```
+
+## Baseline Scores
+
+### Heuristic baseline
+
+Current heuristic baseline results:
+
+- `saturday_reset`: `0.9485`
+- `guests_at_6pm`: `0.9870`
+- `overwhelmed_day`: `0.9658`
+- average final score: `0.9671`
+
+### OpenAI baseline
+
+```bash
+export OPENAI_API_KEY="your_key_here"
+python3 -m baseline.run_openai_baseline
+```
+
+Optionally choose a model:
+
+```bash
+export OPENAI_MODEL="gpt-5.4"
+python3 -m baseline.run_openai_baseline
+```
+
+The OpenAI baseline requires a funded API key with available quota.
+
+## Run the Space App Locally
+
+```bash
+python3 -m app.space_app
+```
+
+## Docker
+
+Build the container:
+
+```bash
+docker build -t homeops .
+```
+
+Run the container:
+
+```bash
+docker run -p 7860:7860 homeops
+```
+
+## Current Status
+
+This repository includes:
+
+- typed Pydantic models for observations, actions, rewards, tasks, events, and environment state
+- a structured OpenEnv-style environment with `reset()`, `step()`, and `state()`
+- three benchmark scenarios with deterministic difficulty progression
+- dense reward shaping with partial progress signals
+- deterministic graders producing scores in `[0.0, 1.0]`
+- a heuristic baseline runner
+- an OpenAI baseline runner
+- a local Gradio Space app
+- tests for environment behavior, graders, manifest presence, baseline smoke, and app smoke
+- a Dockerfile for containerized execution
+
+## Notes
+
+HomeOps is designed as a real-world domestic task-planning benchmark rather than a toy environment or game. The current version emphasizes deterministic grading, interpretable reward shaping, and easy reproducibility.
