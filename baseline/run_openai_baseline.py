@@ -10,7 +10,7 @@ from homeops.env import HomeOpsEnv
 from homeops.graders import grade_episode
 from homeops.models import ActionModel
 
-MODEL = os.getenv("OPENAI_MODEL", "gpt-5.4")
+MODEL = os.getenv("HF_MODEL", "meta-llama/Llama-3.1-8B-Instruct:cerebras")
 
 
 def build_system_prompt() -> str:
@@ -112,24 +112,25 @@ def parse_action(response_text: str) -> ActionModel:
 def choose_openai_action(client: OpenAI, env: HomeOpsEnv) -> ActionModel:
     observation = env._build_observation(invalid_action=False)
 
-    response = client.responses.create(
+    response = client.chat.completions.create(
         model=MODEL,
-        instructions=build_system_prompt(),
-        input=build_user_prompt(observation),
+        messages=[
+            {"role": "system", "content": build_system_prompt()},
+            {"role": "user", "content": build_user_prompt(observation)},
+        ],
+        temperature=0,
     )
 
-    text = getattr(response, "output_text", "").strip()
+    text = response.choices[0].message.content.strip()
     if not text:
         raise ValueError("Model returned empty output.")
 
-    print("raw model output:", repr(text))
     return parse_action(text)
 
 
 def run_scenario_with_openai(client: OpenAI, scenario_id: str) -> dict[str, Any]:
     env = HomeOpsEnv(scenario_id)
     env.reset()
-    print(f"running scenario: {scenario_id}")
 
     done = False
     info: dict[str, Any] = {}
@@ -138,12 +139,7 @@ def run_scenario_with_openai(client: OpenAI, scenario_id: str) -> dict[str, Any]
     actions_taken: list[dict[str, Any]] = []
 
     while not done:
-        try:
-            action = choose_openai_action(client, env)
-        except Exception as e:
-            print(f"model error on scenario={scenario_id}, step={steps + 1}: {e}")
-            action = ActionModel(action_type="rest", task_id=None, minutes=30)
-
+        action = choose_openai_action(client, env)
         actions_taken.append(action.model_dump())
 
         _, reward, done, info = env.step(action)
@@ -167,22 +163,23 @@ def run_scenario_with_openai(client: OpenAI, scenario_id: str) -> dict[str, Any]
 
 
 def main():
-    print("starting openai baseline")
-    print(f"using model: {MODEL}")
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        print("ERROR: OPENAI_API_KEY is not set.")
-        print('Set it like this: export OPENAI_API_KEY="your_key_here"')
+    token = os.getenv("HF_TOKEN")
+    if not token:
+        print("ERROR: HF_TOKEN is not set.")
+        print('Set it like this: export HF_TOKEN="your_token_here"')
         raise SystemExit(1)
 
-    client = OpenAI(api_key=api_key)
+    client = OpenAI(
+        base_url="https://router.huggingface.co/v1",
+        api_key=token,
+    )
 
     scenario_ids = HomeOpsEnv.available_scenarios()
     results = [
         run_scenario_with_openai(client, scenario_id) for scenario_id in scenario_ids
     ]
 
-    print("HomeOps OpenAI baseline results")
+    print("HomeOps HF/OpenAI-compatible baseline results")
     print("=" * 40)
     for result in results:
         print(f"Scenario: {result['scenario_id']}")

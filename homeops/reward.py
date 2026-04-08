@@ -107,10 +107,10 @@ def compute_step_reward(
     elif action_type == "defer_task" and len(current_critical) >= 2:
         components["waste_penalty"] = max(components["waste_penalty"], 0.03)
 
-    if curr_user.energy < 15:
-        components["exhaustion_penalty"] = 0.05
-    elif curr_user.energy < 5:
+    if curr_user.energy < 5:
         components["exhaustion_penalty"] = 0.10
+    elif curr_user.energy < 15:
+        components["exhaustion_penalty"] = 0.05
 
     raw_value = (
         components["progress_reward"]

@@ -4,6 +4,7 @@ import json
 
 import gradio as gr
 
+from baseline.run_baseline import choose_heuristic_action
 from homeops.env import HomeOpsEnv
 from homeops.models import ActionModel
 
@@ -33,12 +34,23 @@ def format_observation(obs) -> str:
 def create_env_state(scenario_id: str):
     env = HomeOpsEnv(scenario_id)
     obs = env.reset()
-    return env, format_observation(obs), "Environment reset."
+    return env, format_observation(obs), "Environment reset.", ""
+
+
+def suggest_heuristic_action(env):
+    if env is None:
+        return "", "Please reset the environment first."
+
+    try:
+        action = choose_heuristic_action(env)
+        return json.dumps(action.model_dump(), indent=2), "Suggested next action."
+    except Exception as e:
+        return "", f"Error: {e}"
 
 
 def step_env(env, action_type: str, task_id: str, minutes: int):
     if env is None:
-        return None, "", "Please reset the environment first."
+        return None, "", "Please reset the environment first.", ""
 
     task_id_value = task_id.strip() if task_id else None
     if task_id_value == "":
@@ -58,9 +70,34 @@ def step_env(env, action_type: str, task_id: str, minutes: int):
             "info": info,
         }
 
-        return env, format_observation(obs), json.dumps(status, indent=2)
+        return env, format_observation(obs), json.dumps(status, indent=2), ""
     except Exception as e:
-        return env, "", f"Error: {e}"
+        return env, "", f"Error: {e}", ""
+
+
+def run_heuristic_step(env):
+    if env is None:
+        return None, "", "Please reset the environment first.", ""
+
+    try:
+        action = choose_heuristic_action(env)
+        obs, reward, done, info = env.step(action)
+
+        status = {
+            "chosen_action": action.model_dump(),
+            "reward": reward.model_dump(),
+            "done": done,
+            "info": info,
+        }
+
+        return (
+            env,
+            format_observation(obs),
+            json.dumps(status, indent=2),
+            json.dumps(action.model_dump(), indent=2),
+        )
+    except Exception as e:
+        return env, "", f"Error: {e}", ""
 
 
 with gr.Blocks(title="HomeOps") as demo:
@@ -85,6 +122,7 @@ prioritization, energy-aware planning, deadline handling, and domestic task exec
 
     observation_box = gr.Code(label="Observation", language="json")
     status_box = gr.Code(label="Step Result", language="json")
+    suggestion_box = gr.Code(label="Suggested Heuristic Action", language="json")
 
     with gr.Row():
         action_type = gr.Dropdown(
@@ -95,18 +133,33 @@ prioritization, energy-aware planning, deadline handling, and domestic task exec
         task_id = gr.Textbox(label="Task ID", placeholder="e.g. pay_electricity_bill")
         minutes = gr.Number(value=30, label="Minutes", precision=0)
 
-    step_btn = gr.Button("Step")
+    with gr.Row():
+        step_btn = gr.Button("Step")
+        suggest_btn = gr.Button("Suggest Heuristic Action")
+        run_heuristic_btn = gr.Button("Run Heuristic Step")
 
     reset_btn.click(
         fn=create_env_state,
         inputs=[scenario],
-        outputs=[env_state, observation_box, status_box],
+        outputs=[env_state, observation_box, status_box, suggestion_box],
+    )
+
+    suggest_btn.click(
+        fn=suggest_heuristic_action,
+        inputs=[env_state],
+        outputs=[suggestion_box, status_box],
     )
 
     step_btn.click(
         fn=step_env,
         inputs=[env_state, action_type, task_id, minutes],
-        outputs=[env_state, observation_box, status_box],
+        outputs=[env_state, observation_box, status_box, suggestion_box],
+    )
+
+    run_heuristic_btn.click(
+        fn=run_heuristic_step,
+        inputs=[env_state],
+        outputs=[env_state, observation_box, status_box, suggestion_box],
     )
 
 

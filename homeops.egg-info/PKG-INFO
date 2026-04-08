@@ -1,15 +1,13 @@
----
-title: HomeOps
-emoji: 🏠
-colorFrom: blue
-colorTo: indigo
-sdk: docker
-app_port: 7860
-tags:
-  - openenv
-  - household
-  - planning
----
+Metadata-Version: 2.4
+Name: homeops
+Version: 0.1.0
+Summary: HomeOps: a household task-management OpenEnv environment
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: pydantic>=2.0
+Requires-Dist: gradio>=4.0.0
+Requires-Dist: openai>=1.0.0
+Requires-Dist: openenv-core>=0.2.0
 
 # HomeOps
 
@@ -153,24 +151,24 @@ Current heuristic baseline results:
 
 - `saturday_reset`: `0.9485`
 - `guests_at_6pm`: `0.9870`
-- `overwhelmed_day`: `0.9333`
-- average final score: `0.9563`
+- `overwhelmed_day`: `0.9658`
+- average final score: `0.9671`
 
-## Run OpenAI-compatible baseline via Hugging Face
+### OpenAI baseline
 
 ```bash
-export HF_TOKEN="your_token_here"
+export OPENAI_API_KEY="your_key_here"
 python3 -m baseline.run_openai_baseline
 ```
 
 Optionally choose a model:
 
 ```bash
-export HF_MODEL="meta-llama/Llama-3.1-8B-Instruct:cerebras"
+export OPENAI_MODEL="gpt-5.4"
 python3 -m baseline.run_openai_baseline
 ```
 
-This runner uses the OpenAI Python client against Hugging Face’s OpenAI-compatible router.
+The OpenAI baseline requires a funded API key with available quota.
 
 ## Run the Space App Locally
 

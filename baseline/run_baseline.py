@@ -9,22 +9,72 @@ from homeops.utils import dependencies_satisfied
 def choose_heuristic_action(env: HomeOpsEnv) -> ActionModel:
     state = env.state()
     tasks = [t for t in state.tasks if t.status in {"pending", "in_progress"}]
-
     valid_tasks = [t for t in tasks if dependencies_satisfied(t, state.tasks)]
 
     if not valid_tasks:
         return ActionModel(action_type="rest", minutes=30)
 
+    current_time = state.user.current_time_minutes
+
+    def minutes_until_next_guest_event() -> int | None:
+        guest_events = [
+            e
+            for e in state.events
+            if e.event_type == "guests_arrival" and e.start_minutes >= current_time
+        ]
+        if not guest_events:
+            return None
+        return min(e.start_minutes - current_time for e in guest_events)
+
+    guest_minutes_left = minutes_until_next_guest_event()
+
+    def guest_relevance_score(task) -> float:
+        score = 0.0
+
+        # Direct environment impacts
+        score += task.guest_readiness_impact * 2.0
+        score += task.cleanliness_impact * 0.8
+        score += (-task.clutter_impact) * 0.8 if task.clutter_impact < 0 else 0.0
+        score += task.kitchen_readiness_impact * 0.5
+
+        # Human-like guest-facing boosts
+        title = task.title.lower()
+        room = (task.room or "").lower()
+
+        if "bathroom" in title or room == "bathroom":
+            score += 18.0
+        if "living room" in title or room == "living_room":
+            score += 12.0
+        if "trash" in title:
+            score += 10.0
+        if "guest" in title or task.category == "guest_prep":
+            score += 12.0
+
+        return score
+
     def sort_key(task):
         deadline_pressure = 999999
         if task.deadline_minutes is not None:
-            deadline_pressure = task.deadline_minutes - state.user.current_time_minutes
+            deadline_pressure = task.deadline_minutes - current_time
+
+        guest_priority = 0.0
+        if (
+            guest_minutes_left is not None and guest_minutes_left <= 600
+        ):  # within 10 hours
+            guest_priority = guest_relevance_score(task)
+
+            # Make guest pressure sharper as the visit gets closer
+            if guest_minutes_left <= 240:  # within 4 hours
+                guest_priority *= 1.5
+            if guest_minutes_left <= 120:  # within 2 hours
+                guest_priority *= 1.8
 
         return (
             -int(task.mandatory),
             deadline_pressure,
             -task.priority,
             -task.urgency,
+            -guest_priority,
             task.energy_cost_per_step,
             task.aversion,
         )
@@ -34,7 +84,7 @@ def choose_heuristic_action(env: HomeOpsEnv) -> ActionModel:
             t.mandatory
             or (
                 t.deadline_minutes is not None
-                and t.deadline_minutes - state.user.current_time_minutes <= 60
+                and t.deadline_minutes - current_time <= 60
             )
             for t in valid_tasks
         )
