@@ -14,4 +14,4 @@ COPY . .
 
 EXPOSE 7860
 
-CMD ["python", "-m", "app.space_app"]
+CMD ["python", "-m", "server.app"]
