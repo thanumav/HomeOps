@@ -1,3 +1,8 @@
+> ⚠️ **This is the Round 1 archive.** The final submission has moved to **[HomeOps_V2](https://github.com/thanumav/HomeOps_V2)**, which contains the updated environment, guarded evaluation results, plots, and GRPO experiment.
+> 
+> Hugging Face Space: **[Thanumav/HomeOps](https://huggingface.co/spaces/Thanumav/HomeOps)**
+
+
 ---
 title: HomeOps
 emoji: 🏠
